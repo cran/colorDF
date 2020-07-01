@@ -4,26 +4,32 @@ knitr::opts_chunk$set(
   comment = ""
 )
 
+## ----echo=FALSE,include=FALSE,eval=TRUE---------------------------------------
+options(crayon.enabled = TRUE)
+options(crayon.colors = 256)
+knitr::knit_hooks$set(output = function(x, options){
+  paste0(
+    '<pre class="r-output"><code>',
+    fansi::sgr_to_html(x = htmltools::htmlEscape(x), warn = FALSE),
+    '</code></pre>'
+  )
+})
+
+## this is an ugly, ugly hack, but otherwise crayon does not listen
+num_colors <- function(forget=TRUE) 256
+library(crayon)
+assignInNamespace("num_colors", num_colors, pos="package:crayon")
+
 ## ----setup,echo=FALSE,results="hide",include=FALSE----------------------------
 library(colorDF)
 library(tidyverse)
 library(data.table)
 
-## ----echo=FALSE,include=FALSE-------------------------------------------------
-options(crayon.enabled = TRUE)
-knitr::knit_hooks$set(output = function(x, options){
-  paste0(
-    '<pre class="r-output"><code>',
-    fansi::sgr_to_html(x = x, warn = FALSE),
-    '</code></pre>'
-  )
-})
-
 ## -----------------------------------------------------------------------------
 data(starwars)
-sw <- starwars[, c(1:4, 7:8)]
+sw <- starwars[, c(1:3, 7:8)]
 sw %>% colorDF
-as.colorDF(sw) %>% summary
+colorDF(sw) %>% summary
 
 ## ----results="hide"-----------------------------------------------------------
 ## works with standard data.frames
@@ -60,9 +66,28 @@ df_style(mtcars.c, "sep") <- "; "
 starwars %>% as.colorDF %>% summary
 
 ## ----eval=FALSE---------------------------------------------------------------
-#  starwars %>% summaryColorDF
+#  starwars %>% summary_colorDF
 
-## ---- eval=FALSE--------------------------------------------------------------
-#  foo <- starwars %>% select(name, species, homeworld) %>%
-#    highlight(.$homeworld == "Tatooine")
+## ---- eval=TRUE---------------------------------------------------------------
+foo <- starwars %>% select(name, species, homeworld) %>% 
+  highlight(.$homeworld == "Tatooine")
+
+## ----eval=FALSE---------------------------------------------------------------
+#  ## for regular data frames
+#  print.data.frame <- colorDF:::print.colorDF
+#  
+#  ## for tidyverse tibbles
+#  print.tbl        <- colorDF:::print.colorDF
+#  
+#  ## for data.tables
+#  print.data.table <- colorDF:::print.colorDF
+
+## ----eval=FALSE---------------------------------------------------------------
+#  rm(print.data.frame, print.tbl, print.data.table)
+
+## ----problemchild, eval=TRUE,results="markdown"-------------------------------
+options(colorDF_tibble_style="yes please")
+options(colorDF_sep= " ")
+options(colorDF_n=5)
+colorDF(starwars)
 

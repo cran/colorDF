@@ -1,6 +1,20 @@
+## combines cat and sprintf
+.catf <- function(x, ...) cat(sprintf(x, ...))
+
+## replaces null/na values by a default
+## usage: x %OR% y
 `%OR%` <- function(x, y) {
   if(is.null(x) || length(x) == 0 || (length(x) == 1 && is.na(x))) x <- y
   return(x)
+}
+
+## classes to class identifiers
+cl2ids <- function(classes) {
+  cl.ids <- c(character="chr", integer="int", numeric="dbl", factor="fct", list="lst", logical="lgl")
+  ids <- cl.ids[classes]
+  ids[ is.na(ids) ] <- "oth"
+  ids <- sprintf("<%s>", ids)
+  return(ids)
 }
 
 
@@ -118,10 +132,9 @@ df_style <- function(x, element) {
 #' @rdname col_type
 #' @export
 `col_type<-` <- function(x, cols=NULL, value) {
-  style <- attr(x, ".style")
-  if(is.null(style)) {
-    warning("Object does not have a defined style")
-    return(x)
+  col_type <- attr(x, ".coltp")
+  if(is.null(col_type)) {
+    col_type <- list()
   }
 
   if(!is.null(cols) && length(cols) != length(value)) {
@@ -129,14 +142,10 @@ df_style <- function(x, element) {
       length(value), length(cols)))
   }
 
-  if(is.null(style[["col.types"]])) {
-    style[["col.types"]] <- list()
-  }
-
   if(is.null(cols)) {
-    style[["col.types"]] <- value
+    col_type <- value
   } else {
-    style[["col.types"]][cols] <- value
+    col_type[cols] <- value
   }
 
 
@@ -151,7 +160,7 @@ df_style <- function(x, element) {
 #
 # style$col.types <- value
 
-  attr(x, ".style") <- style
+  attr(x, ".coltp") <- col_type
   return(x)
 }
 
@@ -171,21 +180,19 @@ df_style <- function(x, element) {
 #' @export
 col_type <- function(x, cols=NULL) {
 
-  style <- attr(x, ".style")
+  col_type <- attr(x, ".coltp")
   if(is.null(style)) {
-    warning("Object does not have a defined style")
     return(NULL)
   }
 
   if(!is.null(cols)) {
-    return(style$col.types[[cols]])
+    return(col_type$col.types[[cols]])
   } else {
-    return(style$col.types)
+    return(col_type$col.types)
   }
 
 }
 
-.catf <- function(x, ...) cat(sprintf(x, ...))
 
 #' Remove the colorful dataframe style attribute
 #' 

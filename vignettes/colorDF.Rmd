@@ -19,34 +19,38 @@ knitr::opts_chunk$set(
 )
 ```
 
+```{r echo=FALSE,include=FALSE,eval=TRUE}
+options(crayon.enabled = TRUE)
+options(crayon.colors = 256)
+knitr::knit_hooks$set(output = function(x, options){
+  paste0(
+    '<pre class="r-output"><code>',
+    fansi::sgr_to_html(x = htmltools::htmlEscape(x), warn = FALSE),
+    '</code></pre>'
+  )
+})
+
+## this is an ugly, ugly hack, but otherwise crayon does not listen
+num_colors <- function(forget=TRUE) 256
+library(crayon)
+assignInNamespace("num_colors", num_colors, pos="package:crayon")
+```
+
+
 ```{r setup,echo=FALSE,results="hide",include=FALSE}
 library(colorDF)
 library(tidyverse)
 library(data.table)
 ```
 
-```{r echo=FALSE,include=FALSE}
-options(crayon.enabled = TRUE)
-knitr::knit_hooks$set(output = function(x, options){
-  paste0(
-    '<pre class="r-output"><code>',
-    fansi::sgr_to_html(x = x, warn = FALSE),
-    '</code></pre>'
-  )
-})
-```
-
 # Quick start
-
-(Please note that the HTML colors below are only approximate rendering of how
-the output will look on a terminal).
 
 
 ```{r}
 data(starwars)
-sw <- starwars[, c(1:4, 7:8)]
+sw <- starwars[, c(1:3, 7:8)]
 sw %>% colorDF
-as.colorDF(sw) %>% summary
+colorDF(sw) %>% summary
 ```
 
 # Colorful data frames
@@ -64,10 +68,11 @@ dynamic, colorful output when viewing data frames. There are two things
 about colorDF which are important:
 
  1. colorDF *never* modifies the behavior of the data frame like object or
-    its contents. The only two things that change are (i) the default print method
-    (visualization), and (ii) the ".style" attribute of the object, and
-    that only if you really change the class of the object, which is
-    usually unnecessary.
+    its contents (i.e. it does not redefine methods like `[<-`, removes row names etc.). 
+    The only two things that change are (i) the default print method
+    (visualization), and (ii) the ".style" and ".coltp" attributes of the
+    object, and that only if you really change the class of the object,
+    which is often unnecessary.
  2. Any data frame like object can be used in colorDF, and you don't need
     to modify these objects to use the colorful visualizations.
 
@@ -98,13 +103,15 @@ Column types are mostly like classes, but colorDF introduces some
 additional distinctions, specifically "identifier" (such that character
 columns which contain identifiers can be shown with a particular, distinct
 style) and "pval", to show significant p-values in a different color (and
-use `format.pval()` for formatting).
+use `format.pval()` for formatting). Column types are stored in the
+`.coltp` attribute of the colorDF object.
 
-colorDF tries to guess how each column should be displayed. First of all,
-it determines the class of the column (character, integer, numeric,
-logical, factor). Next, it looks up whether it can guess the contents of
-the column by looking at the column name (ID, p-value). Finally, it checks
-whether any columns have been implicitely been assigned a column type.
+colorDF tries to guess how each column should be displayed. First it checks
+whether any column types have been assigned explicitely using the
+`col_type<-` function and stored in the `.coltp` attribute of the object.
+Next, it looks up whether it can guess the contents of the column by
+looking at the column name (ID, p-value). Finally, it determines the class
+of the column (character, integer, numeric, logical, factor).  
 
 To assign a particular column type, you need first to turn a data frame
 colorful and then modify the column type:
@@ -118,12 +125,12 @@ col_type(sw, "probability") <- "pval"
 sw
 ```
 
-Note that changing the column type **does not** change the class in the
-data frame! colorDF never touches the data frame object itself, the only
-operations concern the ".style" attribute. So while you may set a column
-type to "character" instead of "factor", it will be looking like a
-character type on the terminal output, but the column class will still be a
-factor.
+Note that changing the column type **does not** change the class of the
+column in the data frame! colorDF never touches the data frame contents,
+the only operations concern the ".style" and ".coltp" attributes. So while
+you may set a column type to "character" instead of "factor", even though
+it will be looking like a character type on the terminal output, the
+column class will still be a factor.
 
 # Styles and Themes
 
@@ -173,15 +180,15 @@ starwars %>% as.colorDF %>% summary
 ```
 
 There is a directly visible (exported) version of the colorful summary
-called `summaryColorDF`:
+called `summary_colorDF`:
 
 ```{r eval=FALSE}
-starwars %>% summaryColorDF
+starwars %>% summary_colorDF
 ```
 
 The `highlight()` function allows to mark selected rows from the table:
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 foo <- starwars %>% select(name, species, homeworld) %>% 
   highlight(.$homeworld == "Tatooine")
 ```
@@ -189,6 +196,55 @@ foo <- starwars %>% select(name, species, homeworld) %>%
 (Unfortunately, the HTML representation of the ANSI terminal doesn't show
 that one correctly).
 
+
+# Setting up colorDF as the default data frame print method
+
+You can use colorDF as the default method for displaying data frames and
+similar objects. For this, you need to use the `colorDF:::print.colorDF`
+function:
+
+```{r eval=FALSE}
+## for regular data frames
+print.data.frame <- colorDF:::print.colorDF
+
+## for tidyverse tibbles
+print.tbl        <- colorDF:::print.colorDF
+
+## for data.tables
+print.data.table <- colorDF:::print.colorDF
+```
+
+This will not replace or modify the original functions from data.table or
+tibble packages, but merely mask these. And from now on, every data frame
+like object will be shown in color, but otherwise, its behavior will not
+change.
+
+Should you want to go back to the original print functions, just remove
+these new functions:
+
+```{r eval=FALSE}
+rm(print.data.frame, print.tbl, print.data.table)
+```
+
+# Global options
+
+There are two global options which override whatever has been defined in
+a particular theme / style.
+
+ * `colorDF_tibble_style`: if not NULL, tibble conventions will be used
+   (i.e., show only columns which fit on the screen and create a subheader
+   with column classes)
+ * `colorDF_sep`: column separator string 
+ * `colorDF_n`: how many rows to show on the screen
+
+For example, 
+
+```{r problemchild, eval=TRUE,results="markdown"}
+options(colorDF_tibble_style="yes please")
+options(colorDF_sep= " ")
+options(colorDF_n=5)
+colorDF(starwars)
+```
 
 # Rmarkdown
 
@@ -198,12 +254,12 @@ this, include the following chunk at the beginning of your document:
 
 
 ````markdown
-`r ''````{r echo=FALSE,include=FALSE}
+`r ''````{r echo=FALSE}
 options(crayon.enabled = TRUE)
 knitr::knit_hooks$set(output = function(x, options){
   paste0(
     '<pre class="r-output"><code>',
-    fansi::sgr_to_html(x = x, warn = FALSE),
+    fansi::sgr_to_html(x = htmltools::htmlEscape(x), warn = FALSE),
     '</code></pre>'
   )
 })
@@ -212,9 +268,25 @@ knitr::knit_hooks$set(output = function(x, options){
 
 # Issues
 
-The main problem is that it relies on the `crayon` package, which
-unfortunately is sometimes wrong about whether the terminal has 255 colors
-or 16 (at least in the version on CRAN). Case in point, the colors do not
-render correctly in rstudio, despite the fact that the rstudio terminal is
-of course capable of showing all ANSI colors.
+Currently, colorDF relies on the `crayon` library to generate the ANSI escape
+codes. Unfortunately, crayon is peculiar about trying to guess the terminal
+type. Without going into details, there are situations in which it is not
+possible to force crayon into using 256 colors, even if you know that it
+really works. One such example is this vignette: if an rmarkdown file is
+built from command line, crayon will ignore any setting of the
+`crayon.colors` option and use only the base colors.
+
+The reason that the colors in this vignette appear correct is that I used
+an ugly hack to substitute the `crayon::num_colors()` function by a
+function that always returns 256:
+
+````markdown
+`r ''````{r echo=FALSE}
+num_colors <- function(forget=TRUE) 256
+library(crayon)
+assignInNamespace("num_colors", num_colors, pos="package:crayon")
+```
+````
+
+
 
