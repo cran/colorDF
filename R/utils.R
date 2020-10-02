@@ -1,6 +1,13 @@
 ## combines cat and sprintf
 .catf <- function(x, ...) cat(sprintf(x, ...))
 
+## combines cat and sprintf, plus a newline
+.catfn <- function(x, ...) {
+  .catf(x, ...)
+  cat("\n")
+}
+
+
 ## replaces null/na values by a default
 ## usage: x %OR% y
 `%OR%` <- function(x, y) {
@@ -59,8 +66,8 @@ cl2ids <- function(classes) {
 #' * col.types: a list mapping the column names to column types. For example,
 #'   if it is `list(result="pval")`, then the column with name "result" will
 #'   be considered to be a p-value and styled accordingly.
-#' * type.styles: a list mapping column types to formatting styles. See "Column types"
-#'   below.
+#' * type.styles: a list mapping column types to formatting styles. See "Formatting styles"
+#'   below and help page for [col_type()].
 #' * fixed.width: if not NULL, all columns have the same width
 #' * sep: string separating the columns 
 #' * digits: how many digits to use
@@ -86,31 +93,22 @@ cl2ids <- function(classes) {
 #'  * decoration: a character vector which may include the following key
 #'    words: inverse, bold, italic
 #'
-#' @section Column types:
-#' 
-#' Rather than directly assigning a style to a column (which is possible
-#' using the `col.styles` element) it is preferable to change a style
-#' associated with a column type. Several such types are defined in the
-#' default styles:
-#'
-#'  * character
-#'  * numeric
-#'  * integer
-#'  * factor
-#'  * identifier
-#'  * pval
-#'  * default
 #' @return `df_style(x)` returns a list. Assignment results in a data frame
 #' with a modified style.
 #' @param x a colorful data frame
 #' @param element element or elements of the style
 #' @param value one or more values to set
-#' @seealso [print.colorDF()] on printing options
+#' @seealso [print.colorDF()] on printing options; [col_type()] for column
+#' types.
 #' @examples
 #' df <- as.colorDF(mtcars)
 #'
 #' ## row names should be red on yellow background (yikes!)
 #' df_style(df, "row.names") <- list(fg="red", bg="#FFFF00")
+#'
+#' ## you can use `$` to access the elements
+#' ## here, show significant p-values in green
+#' df_style(df)$type.styles$pval$fg_sign <- "green"
 #'
 #' ## example of assigning multiple values in one assignment:
 #' df_style(df) <- list(interleave=list(fg="#FFFFFF", bg="blue"),
@@ -137,10 +135,12 @@ df_style <- function(x, element) {
     col_type <- list()
   }
 
-  if(!is.null(cols) && length(cols) != length(value)) {
+  if(!is.null(cols) && !is.null(value) && length(value) != 1 && length(cols) != length(value)) {
     stop(sprintf("Cannot asign %d column types to %d columns",
       length(value), length(cols)))
   }
+
+  if(is.numeric(cols)) cols <- paste0("X.", cols)
 
   if(is.null(cols)) {
     col_type <- value
@@ -169,6 +169,24 @@ df_style <- function(x, element) {
 #'
 #' Set or retrieve a column type of a colorful data frame
 #'
+#' Rather than directly assigning a style to a column (which is possible
+#' using the `col.styles` element) it is preferable to change a style
+#' associated with a column type. Several such types are defined in the
+#' default styles:
+#'
+#'  * character
+#'  * numeric
+#'  * integer
+#'  * factor
+#'  * identifier
+#'  * pval
+#'  * match
+#'  * hidden
+#'  * default
+#'
+#' Of course, new column types may be defined and their formatting defined
+#' in a theme or a particular data frame style.
+#'
 #' @param x a colorful data frame
 #' @param cols column names to set or retrieve
 #' @param value character vector with column types
@@ -177,18 +195,30 @@ df_style <- function(x, element) {
 #' col_type(mc, "gear") <- "factor"
 #' col_type(mc, "gear")
 #' col_type(mc) <- list(gear="factor", cyl="integer")
+#' ## Note: the *class* of the columns did not change!
+#' ## Chaning column type merely changes the way it is displayed
+#' class(mc[["gear"]])
+#'
+#' ## Hide some columns
+#' col_type(mc, c("disp", "hp")) <- "hidden"
+#'
+#' ## Create a new type and style
+#' col_type(mc, "carb") <- "carbstyle"
+#' df_style(mc)$type.styles$carbstyle <- list(fg="red", decoration="bold")
 #' @export
 col_type <- function(x, cols=NULL) {
 
   col_type <- attr(x, ".coltp")
-  if(is.null(style)) {
+
+  if(is.null(col_type)) {
     return(NULL)
   }
 
   if(!is.null(cols)) {
-    return(col_type$col.types[[cols]])
+    if(is.numeric(cols)) cols <- paste0("X.", cols)
+    return(col_type[[cols]])
   } else {
-    return(col_type$col.types)
+    return(col_type)
   }
 
 }
@@ -197,8 +227,12 @@ col_type <- function(x, cols=NULL) {
 #' Remove the colorful dataframe style attribute
 #' 
 #' Remove the colorful dataframe style attribute
+#' 
+#' Strips the color data frame style, but leaves the .coltp and class
+#' intact. 
 #' @return colorless data frame
 #' @param x a colorful dataframe 
+#' @seealso To completely remove the colorDF class and attributes, use [uncolor()]
 #' @export
 remove_df_style <- function(x) {
   attr(x, ".style") <- NULL

@@ -1,10 +1,11 @@
 ## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = ""
+  comment = "",
+  R.options=list(width=100)
 )
 
-## ----echo=FALSE,include=FALSE,eval=TRUE---------------------------------------
+## ----echo=FALSE,include=FALSE,eval=TRUE-----------------------------------------------------------
 options(crayon.enabled = TRUE)
 options(crayon.colors = 256)
 knitr::knit_hooks$set(output = function(x, options){
@@ -15,23 +16,24 @@ knitr::knit_hooks$set(output = function(x, options){
   )
 })
 
-## this is an ugly, ugly hack, but otherwise crayon does not listen
+## this is an ugly, ugly hack, but otherwise crayon does not LISTEN TO REASON!!!
 num_colors <- function(forget=TRUE) 256
 library(crayon)
 assignInNamespace("num_colors", num_colors, pos="package:crayon")
 
-## ----setup,echo=FALSE,results="hide",include=FALSE----------------------------
+## ----setup,echo=FALSE,results="hide",include=FALSE------------------------------------------------
 library(colorDF)
-library(tidyverse)
+library(dplyr)
 library(data.table)
 
-## -----------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
+library(dplyr)
 data(starwars)
 sw <- starwars[, c(1:3, 7:8)]
 sw %>% colorDF
 colorDF(sw) %>% summary
 
-## ----results="hide"-----------------------------------------------------------
+## ----results="hide"-------------------------------------------------------------------------------
 ## works with standard data.frames
 colorDF(mtcars)
 
@@ -41,10 +43,10 @@ mtcars %>% as_tibble %>% colorDF
 ## works with data.table
 colorDF(data.table(mtcars))
 
-## ----echo=FALSE---------------------------------------------------------------
+## ----echo=FALSE-----------------------------------------------------------------------------------
 colorDF(mtcars)
 
-## -----------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
 sw <- sw %>% as.colorDF
 col_type(sw, "name") <- "identifier"
 col_type(sw, "gender") <- "factor"
@@ -52,41 +54,69 @@ sw$probability <- runif(nrow(sw), 0, 0.1)
 col_type(sw, "probability") <- "pval"
 sw
 
-## -----------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
+sw <- colorDF(starwars)
+col_type(sw, c("vehicles", "films", "starships")) <- "hidden"
+sw
+
+## -------------------------------------------------------------------------------------------------
 colorDF(sw, theme="bw")
 
-## -----------------------------------------------------------------------------
-colorDF_themes_show()
+## -------------------------------------------------------------------------------------------------
+colorDF_themes_show(force_bg=TRUE)
 
-## -----------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
 mtcars.c <- colorDF(mtcars)
 df_style(mtcars.c, "sep") <- "; "
 
-## -----------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------------
 starwars %>% as.colorDF %>% summary
 
-## ----eval=FALSE---------------------------------------------------------------
+## ----eval=FALSE-----------------------------------------------------------------------------------
 #  starwars %>% summary_colorDF
 
-## ---- eval=TRUE---------------------------------------------------------------
+## ----summary_mtcars,eval=TRUE---------------------------------------------------------------------
+mtcars_cyl <- split(mtcars$mpg, mtcars$cyl)
+sapply(mtcars_cyl, length)
+
+## ----summary_mtcars2,eval=TRUE--------------------------------------------------------------------
+summary_colorDF(mtcars_cyl, numformat="g", width=90)
+
+## ----summary_iris---------------------------------------------------------------------------------
+term_boxplot(Sepal.Length ~ Species, data=iris, width=90)
+
+## ---- eval=TRUE-----------------------------------------------------------------------------------
 foo <- starwars %>% select(name, species, homeworld) %>% 
   highlight(.$homeworld == "Tatooine")
 
-## ----eval=FALSE---------------------------------------------------------------
+## ---- eval=TRUE-----------------------------------------------------------------------------------
+starwars %>% df_search("blue")
+
+## ----eval=FALSE-----------------------------------------------------------------------------------
 #  ## for regular data frames
-#  print.data.frame <- colorDF:::print.colorDF
+#  print.data.frame <- colorDF:::print_colorDF
 #  
 #  ## for tidyverse tibbles
-#  print.tbl        <- colorDF:::print.colorDF
+#  print.tbl        <- colorDF:::print_colorDF
 #  
 #  ## for data.tables
-#  print.data.table <- colorDF:::print.colorDF
+#  print.data.table <- colorDF:::print_colorDF
 
-## ----eval=FALSE---------------------------------------------------------------
+## ----eval=FALSE-----------------------------------------------------------------------------------
 #  rm(print.data.frame, print.tbl, print.data.table)
 
-## ----problemchild, eval=TRUE,results="markdown"-------------------------------
-options(colorDF_tibble_style="yes please")
+## ----eval=FALSE-----------------------------------------------------------------------------------
+#  setMethod("show", "DataFrame", function(object) colorDF::print_colorDF(object))
+
+## ----eval=FALSE-----------------------------------------------------------------------------------
+#  loadNamespace("S4Vectors")
+#  setMethod("show", "DataFrame", function(object) colorDF::print_colorDF(object))
+
+## ----alloptions,eval=TRUE,results="markdown",R.options=list(width=100)----------------------------
+colorDF_options()
+
+## ----problemchild, eval=TRUE,results="markdown"---------------------------------------------------
+options(colorDF_tibble_style=TRUE)
 options(colorDF_sep= " ")
 options(colorDF_n=5)
 colorDF(starwars)

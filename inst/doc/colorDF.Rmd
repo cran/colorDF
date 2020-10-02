@@ -5,7 +5,7 @@ output:
     toc: true
     toc_float: true
     number_sections: true
-    theme: united
+    theme: sandstone
 vignette: >
   %\VignetteIndexEntry{Color data frame output in R terminal}
   %\VignetteEngine{knitr::rmarkdown}
@@ -15,7 +15,8 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = ""
+  comment = "",
+  R.options=list(width=100)
 )
 ```
 
@@ -30,7 +31,7 @@ knitr::knit_hooks$set(output = function(x, options){
   )
 })
 
-## this is an ugly, ugly hack, but otherwise crayon does not listen
+## this is an ugly, ugly hack, but otherwise crayon does not LISTEN TO REASON!!!
 num_colors <- function(forget=TRUE) 256
 library(crayon)
 assignInNamespace("num_colors", num_colors, pos="package:crayon")
@@ -39,7 +40,7 @@ assignInNamespace("num_colors", num_colors, pos="package:crayon")
 
 ```{r setup,echo=FALSE,results="hide",include=FALSE}
 library(colorDF)
-library(tidyverse)
+library(dplyr)
 library(data.table)
 ```
 
@@ -47,6 +48,7 @@ library(data.table)
 
 
 ```{r}
+library(dplyr)
 data(starwars)
 sw <- starwars[, c(1:3, 7:8)]
 sw %>% colorDF
@@ -68,7 +70,12 @@ dynamic, colorful output when viewing data frames. There are two things
 about colorDF which are important:
 
  1. colorDF *never* modifies the behavior of the data frame like object or
-    its contents (i.e. it does not redefine methods like `[<-`, removes row names etc.). 
+    its contents (i.e. it does not redefine methods like `[<-`, removes row names 
+    etc.^[Strictly speaking, that is not true, as there is a
+    `[.colorDF` method which serves only as a wrapper around the respective
+    `[` of the underlying data frame, tibble or data table. The only reason
+    is exist is that otherwise the style and column type attributes will be
+    lost.]). 
     The only two things that change are (i) the default print method
     (visualization), and (ii) the ".style" and ".coltp" attributes of the
     object, and that only if you really change the class of the object,
@@ -127,10 +134,18 @@ sw
 
 Note that changing the column type **does not** change the class of the
 column in the data frame! colorDF never touches the data frame contents,
-the only operations concern the ".style" and ".coltp" attributes. So while
-you may set a column type to "character" instead of "factor", even though
-it will be looking like a character type on the terminal output, the
+the only operations concern the "class", ".style" and ".coltp" attributes.
+So while you may set a column type to "character" instead of "factor", even
+though it will be looking like a character type on the terminal output, the
 column class will still be a factor.
+
+You can also hide a column:
+
+```{r}
+sw <- colorDF(starwars)
+col_type(sw, c("vehicles", "films", "starships")) <- "hidden"
+sw
+```
 
 # Styles and Themes
 
@@ -147,10 +162,11 @@ colorDF(sw, theme="bw")
 ```
 
 Here is an overview of the themes. Some of them are intended for dark
-background and will not look great below:
+background and will not look great on a light background, which is why we
+use `force_bg=TRUE` to force black on white background for these themes:
 
 ```{r}
-colorDF_themes_show()
+colorDF_themes_show(force_bg=TRUE)
 ```
 
 You can add your own themes using `add_colorDF_theme()` (see the example
@@ -170,7 +186,9 @@ If interested, read the help file for `df_style()`.
 
 # Utilities
 
-colorDF comes with two utility functions. Firstly, it defines a summary
+## Summaries
+
+colorDF comes with a couple of utility functions. Firstly, it defines a summary
 method for colorful data frames which can also be used for any other data
 frame like object and which I find much more useful than the regular
 summary:
@@ -186,6 +204,35 @@ called `summary_colorDF`:
 starwars %>% summary_colorDF
 ```
 
+As you can see, the summary is much more informative than the default
+`summary.data.frame` function. Not only this, but the object does not need
+to be a data frame – any list can do!
+
+```{r summary_mtcars,eval=TRUE}
+mtcars_cyl <- split(mtcars$mpg, mtcars$cyl)
+sapply(mtcars_cyl, length)
+```
+
+The list `mtcars_cyl` is the miles per gallon column split by number of
+cylinders. We can use `summary_colorDF` to create a (semi)graphical summary
+of this list:
+
+```{r summary_mtcars2,eval=TRUE}
+summary_colorDF(mtcars_cyl, numformat="g", width=90)
+```
+
+In fact, this is so useful (especially if an interactive graphic device is
+not practical, e.g. when running R over ssh/screen) that I implemented a
+terminal boxplotting function:
+
+```{r summary_iris}
+term_boxplot(Sepal.Length ~ Species, data=iris, width=90)
+```
+
+
+
+## Highlighting
+
 The `highlight()` function allows to mark selected rows from the table:
 
 ```{r, eval=TRUE}
@@ -197,6 +244,16 @@ foo <- starwars %>% select(name, species, homeworld) %>%
 that one correctly).
 
 
+## Data frame search
+
+The `df_search()` function looks through a data frame for occurence of a
+pattern in all columns (or a subset, if the parameter `cols` is used) and
+where the pattern matches, it colors the contents of the cell in red:
+
+```{r, eval=TRUE}
+starwars %>% df_search("blue")
+```
+
 # Setting up colorDF as the default data frame print method
 
 You can use colorDF as the default method for displaying data frames and
@@ -205,13 +262,13 @@ function:
 
 ```{r eval=FALSE}
 ## for regular data frames
-print.data.frame <- colorDF:::print.colorDF
+print.data.frame <- colorDF:::print_colorDF
 
 ## for tidyverse tibbles
-print.tbl        <- colorDF:::print.colorDF
+print.tbl        <- colorDF:::print_colorDF
 
 ## for data.tables
-print.data.table <- colorDF:::print.colorDF
+print.data.table <- colorDF:::print_colorDF
 ```
 
 This will not replace or modify the original functions from data.table or
@@ -226,21 +283,49 @@ these new functions:
 rm(print.data.frame, print.tbl, print.data.table)
 ```
 
+This is a bit more complicated in case of S4 objects. One such object type
+is a DataFrame defined in the S4Vectors package. It is commonly used in
+many Bioconductor packages such as DESeq2. Unfortunately, the `show` method
+defined for DataFrames is not convenient, for example it always displays a
+ridiculous number of significant digits, cluttering the output.
+`print_colorDF` can print these classes, as it can work on anything that
+can be cast into a data frame using an `as.data.frame` method.
+
+To take over the output of DataFrames and all other objects inheriting from
+it (such as DESeqResults), we need to use the S4 convention of defining the
+methods:
+
+
+```{r eval=FALSE}
+setMethod("show", "DataFrame", function(object) colorDF::print_colorDF(object))
+```
+
+Since methods can be only defined for existing classes, if you want to put
+it in your `.Rprofile`, you need to first load (but not necessarily attach)
+the S4Vectors package:
+
+```{r eval=FALSE}
+loadNamespace("S4Vectors")
+setMethod("show", "DataFrame", function(object) colorDF::print_colorDF(object))
+```
+
+
+
 # Global options
 
-There are two global options which override whatever has been defined in
-a particular theme / style.
+There is a number of options which override whatever has been defined in
+a particular theme / style. You can view them with `colorDF_options()`:
 
- * `colorDF_tibble_style`: if not NULL, tibble conventions will be used
-   (i.e., show only columns which fit on the screen and create a subheader
-   with column classes)
- * `colorDF_sep`: column separator string 
- * `colorDF_n`: how many rows to show on the screen
+```{r alloptions,eval=TRUE,results="markdown",R.options=list(width=100)}
+colorDF_options()
+```
 
-For example, 
+
+To change these options, use  `options()` just like with any other global
+option. For example, 
 
 ```{r problemchild, eval=TRUE,results="markdown"}
-options(colorDF_tibble_style="yes please")
+options(colorDF_tibble_style=TRUE)
 options(colorDF_sep= " ")
 options(colorDF_n=5)
 colorDF(starwars)
