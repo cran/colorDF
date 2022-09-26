@@ -1,6 +1,6 @@
 Package: colorDF
 Title: Colorful Data Frames in R Terminal
-Version: 0.1.5
+Version: 0.1.7
 Authors@R: 
     person(given = "January",
            family = "Weiner",
@@ -25,8 +25,8 @@ Suggests: knitr, rmarkdown, fansi, htmltools, data.table, testthat (>=
 VignetteBuilder: knitr
 RoxygenNote: 7.1.1
 NeedsCompilation: no
-Packaged: 2022-09-23 19:54:41 UTC; january
+Packaged: 2022-09-26 12:44:07 UTC; january
 Author: January Weiner [aut, cre] (<https://orcid.org/0000-0003-1438-7819>)
 Maintainer: January Weiner <january.weiner@gmail.com>
 Repository: CRAN
-Date/Publication: 2022-09-25 10:30:02 UTC
+Date/Publication: 2022-09-26 13:20:02 UTC

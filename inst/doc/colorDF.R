@@ -16,11 +16,6 @@ knitr::knit_hooks$set(output = function(x, options){
   )
 })
 
-## this is an ugly, ugly hack, but otherwise crayon does not LISTEN TO REASON!!!
-num_colors <- function(forget=TRUE) 256
-library(crayon)
-assignInNamespace("num_colors", num_colors, pos="package:crayon")
-
 ## ----setup,echo=FALSE,results="hide",include=FALSE------------------------------------------------
 library(colorDF)
 library(dplyr)
